@@ -2,6 +2,7 @@ import os
 import importlib.util
 import tkinter as tk
 from tkinter import filedialog, messagebox
+import builtins
 
 SCRIPTS_DIR = "scripts"
 
@@ -45,7 +46,18 @@ def run_selected_script():
         module = import_script(script_path)
 
         if hasattr(module, "run"):
-            module.run(file_path, k_value)
+            # Capture script output by replacing print() with ui_print()
+            old_print = builtins.print
+            def custom_print(*args, **kwargs):
+                message = " ".join(str(a) for a in args)
+                ui_print(message)
+
+            builtins.print = custom_print
+            try:
+                module.run(file_path, k_value)
+            finally:
+                builtins.print = old_print  # restore after script finishes
+
             messagebox.showinfo(
                 "Success",
                 f"Ran '{selected_script}' with k={k_value} on:\n{os.path.basename(file_path)}"
@@ -55,6 +67,9 @@ def run_selected_script():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to run {selected_script}:\n{e}")
 
+def ui_print(text):
+    console.insert(tk.END, text + "\n")
+    console.see(tk.END)  # auto-scroll
 
 # --- GUI setup ---
 root = tk.Tk()
@@ -116,6 +131,10 @@ run_button = tk.Button(
 )
 run_button.pack(pady=20)
 
+# text output box
+console = tk.Text(content, height=8, font=("Courier", 10))
+console.pack(fill="x", padx=10, pady=10)
+
 footer = tk.Label(
     root,
     text="Scripts auto-loaded from /scripts folder",
@@ -124,4 +143,14 @@ footer = tk.Label(
 )
 footer.pack(side="bottom", pady=10)
 
+# --- Output console ---
+console_label = tk.Label(root, text="Output:", font=("Arial", 11), bg="#f8f9fa")
+console_label.pack(pady=(5, 0))
+
+console = tk.Text(root, height=8, font=("Courier", 10), bg="#eeeeee")
+console.pack(fill="both", expand=True, padx=10, pady=10)
+
+
 root.mainloop()
+
+
