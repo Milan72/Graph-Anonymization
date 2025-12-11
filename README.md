@@ -187,13 +187,6 @@ u2 v2
 
 | **Algorithms & Techniques** | **Utility Metrics** |
 |----------------------------|---------------------|
-| Differential privacy-based anonymization | PageRank centrality |
-| k-anonymity for graphs | Eigenvector centrality |
-| Edge differential privacy | Assortativity coefficient |
-| Graph clustering-based anonymization | Modularity preservation |
-| Machine learning-guided anonymization | Path length distribution |
-| Community structure preservation | Triangle count preservation |
-| Multi-level anonymization strategies | Graph diameter preservation |
 
 ---
 
