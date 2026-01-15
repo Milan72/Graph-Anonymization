@@ -227,7 +227,7 @@ run_button = tk.Button(
     text="Choose File and Run",
     command=run_selected_script,
     font=("Arial", 12, "bold"),
-    bg="#007bff", fg="white",
+    bg="#007bff", fg="black",
     activebackground="#0056b3",
     relief="flat",
     width=20, height=2
@@ -251,7 +251,7 @@ console_frame.pack(fill='x', padx=10)
 console_label = tk.Label(console_frame, text="Output:", font=("Arial", 11), bg="#f8f9fa")
 console_label.pack(side='left', pady=(5, 0))
 
-clear_button = tk.Button(console_frame, text="Clear", command=clear_console, font=("Arial", 10), bg="#dc3545", fg="white", relief="flat")
+clear_button = tk.Button(console_frame, text="Clear", command=clear_console, font=("Arial", 10), bg="#dc3545", fg="black", relief="flat")
 clear_button.pack(side='right', pady=(5,0))
 
 console = tk.Text(root, height=8, font=("Courier", 10), bg="#eeeeee")
@@ -259,5 +259,3 @@ console.pack(fill="both", expand=True, padx=10, pady=10)
 
 
 root.mainloop()
-
-
