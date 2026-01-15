@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 
 def run(file_path, k):
     """
-    Compute the k-shell of the graph and evaluate a k-shell utility metric.
-    Utility = (Number of nodes in k-shell / Original number of nodes)
+    Compute the k-core of the graph and evaluate the k-core utility metric.
+    Utility = (Number of nodes in k-core / Original number of nodes)
     """
 
     # --- Load MTX network file ---
@@ -21,54 +21,56 @@ def run(file_path, k):
     G = nx.Graph()
     G.add_edges_from(edges_data)
 
-    # Degree info
     max_deg = max(dict(G.degree()).values())
     print("Max degree in graph =", max_deg)
 
+
     print(f"Loaded graph with {G.number_of_nodes()} nodes and {G.number_of_edges()} edges.")
 
-    # --- Compute k-shell ---
+    # --- Compute k-core ---
     try:
-        kshell = nx.k_shell(G, k=k)
+        kcore = nx.k_core(G, k=k)
     except nx.NetworkXError:
-        print(f"Invalid k={k} for shell decomposition.")
+        print(f"Error: k={k} is too large — produces an empty graph.")
         return
 
-    shell_nodes = kshell.number_of_nodes()
+    core_nodes = kcore.number_of_nodes()
     original_nodes = G.number_of_nodes()
 
     # Utility metric
-    utility = shell_nodes / original_nodes if original_nodes > 0 else 0
+    utility = core_nodes / original_nodes if original_nodes > 0 else 0
 
-    print(f"K-shell size (k={k}): {shell_nodes} nodes")
-    print(f"Utility metric U_kShell = {utility:.4f}")
-
-    if shell_nodes == 0:
-        print(f"No nodes lie exactly in the {k}-shell.")
-        return
+    print(f"K-core size (k={k}): {core_nodes} nodes")
+    print(f"Utility metric U_k = {utility:.4f}")
 
     # --- Visualization ---
+    # Layout from original graph for consistent positioning
     pos = nx.spring_layout(G, seed=42)
 
     plt.figure(figsize=(8, 8))
 
-    # Draw original faded graph
+    # Draw original graph faded
     nx.draw(
-        G, pos,
+        G,
+        pos,
         node_color="#dddddd",
         edge_color="#cccccc",
-        alpha=0.25,
+        alpha=0.3,
         with_labels=False
     )
 
-    # Highlight ONLY the k-shell
+    # Draw k-core highlighted
     nx.draw(
-        kshell, pos,
+        kcore,
+        pos,
         node_color="orange",
         edge_color="red",
         node_size=600,
         with_labels=True
     )
 
-    plt.title(f"K-Shell (k={k}) — Utility={utility:.4f}")
-    plt.show()
+    plt.title(f"K-Core (k={k}) — Utility={utility:.4f}")
+    try:
+        plt.show(block=False)
+    except TypeError:
+        plt.show()

@@ -1,7 +1,9 @@
 import io
+import os
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
+from scripts.utils.util_mtx import save_graph_as_mtx
 
 ## naive anonymization function
 
@@ -45,4 +47,18 @@ def run(file_path, k):
         node_size=600,
         edge_color="gray",
         )
-    plt.show()
+    try:
+        plt.show(block=False)
+    except TypeError:
+        plt.show()
+
+    # Save modified graph as .mtx next to the input file
+    try:
+        base = os.path.splitext(os.path.basename(file_path))[0]
+        out_path = os.path.join(os.path.dirname(file_path), f"{base}_anonymized.mtx")
+        save_graph_as_mtx(cpyG, out_path, comment="naive_anonymization output", remap_to_one_based=False)
+        print(f"Saved anonymized graph to: {out_path}")
+        return out_path
+    except Exception as e:
+        print(f"Failed to save .mtx: {e}")
+        return None

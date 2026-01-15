@@ -1,7 +1,9 @@
 import io
+import os
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
+from scripts.utils.util_mtx import save_graph_as_mtx
 
 def run(file_path, k):
     # Open whatever file the user selected in the GUI
@@ -34,4 +36,7 @@ def run(file_path, k):
         edge_color="gray",
     )
 
-    plt.show()
+    try:
+        plt.show(block=False)
+    except TypeError:
+        plt.show()

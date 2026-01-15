@@ -159,6 +159,9 @@ python main.py
 4. Select MTX format network file
 5. View visualization and utility metrics
 
+### Output
+- Modified graphs: scripts will save a new `.mtx` file next to the input file when applicable. The filename is the input base name plus a suffix (e.g. `_anonymized.mtx`, `_randadddel.mtx`, `_randswitch.mtx`, or `_copy.mtx`).
+
 ### **Input Format:**
 MTX (Matrix Market) format - edge list with headers:
 ```

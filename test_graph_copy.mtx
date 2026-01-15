@@ -1,0 +1,6 @@
+%%MatrixMarket matrix coordinate pattern symmetric
+% display_graph copy
+4 4 3
+1 2
+2 3
+3 4

@@ -1,0 +1,6 @@
+%%MatrixMarket matrix coordinate pattern symmetric
+% random_add_delete output
+4 4 3
+1 2
+2 3
+3 4

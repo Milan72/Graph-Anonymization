@@ -3,17 +3,51 @@ import importlib.util
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import builtins
+try:
+    import matplotlib.pyplot as plt
+    plt.ion()
+except Exception:
+    # matplotlib may not be present in some environments; scripts will handle their own imports
+    pass
 
 SCRIPTS_DIR = "scripts"
 
 def load_scripts():
-    """Dynamically load all .py files in /scripts"""
-    scripts = {}
-    for filename in os.listdir(SCRIPTS_DIR):
-        if filename.endswith(".py"):
-            script_name = os.path.splitext(filename)[0]
-            scripts[script_name] = os.path.join(SCRIPTS_DIR, filename)
-    return scripts
+    """Load scripts grouped by category from `scripts/` subfolders.
+
+    Expected subfolders (case-insensitive):
+      - anonymization -> Anonymization
+      - utils or utility -> Utilities
+      - helpers or helper -> Helpers
+
+    Returns a dict: { 'Anonymization': {name: path, ...}, 'Utilities': {...}, 'Helpers': {...} }
+    """
+    categories = {'Anonymization': {}, 'Utilities': {}, 'Helpers': {}}
+
+    # scan top-level subdirectories
+    for entry in os.listdir(SCRIPTS_DIR):
+        full = os.path.join(SCRIPTS_DIR, entry)
+        if not os.path.isdir(full):
+            continue
+
+        key = None
+        en = entry.lower()
+        if 'anonym' in en:
+            key = 'Anonymization'
+        elif 'util' in en or 'utility' in en:
+            key = 'Utilities'
+        elif 'help' in en:
+            key = 'Helpers'
+        else:
+            # skip unknown folders
+            continue
+
+        for filename in os.listdir(full):
+            if filename.endswith('.py'):
+                name = os.path.splitext(filename)[0]
+                categories[key][name] = os.path.join(full, filename)
+
+    return categories
 
 def import_script(script_path):
     """Import a script file dynamically"""
@@ -23,9 +57,26 @@ def import_script(script_path):
     return module
 
 def run_selected_script():
-    selected_script = script_var.get()
-    if selected_script == "Select script...":
-        messagebox.showwarning("Warning", "Please choose a script first.")
+    # Collect selected scripts from the three category listboxes.
+    selected = []
+
+    # Anonymization first
+    a_inds = anonym_listbox.curselection()
+    for i in a_inds:
+        selected.append(('Anonymization', anonym_listbox.get(i)))
+
+    # Utilities next
+    u_inds = utils_listbox.curselection()
+    for i in u_inds:
+        selected.append(('Utilities', utils_listbox.get(i)))
+
+    # Helpers last
+    h_inds = helpers_listbox.curselection()
+    for i in h_inds:
+        selected.append(('Helpers', helpers_listbox.get(i)))
+
+    if not selected:
+        messagebox.showwarning("Warning", "Please choose one or more scripts first.")
         return
 
     # Read k value from entry
@@ -40,36 +91,53 @@ def run_selected_script():
     if not file_path:
         return
 
-    # Run script
-    script_path = scripts[selected_script]
-    try:
-        module = import_script(script_path)
+    # Run selected scripts sequentially, piping output of one as input to the next
+    current_file = file_path
+    for category, script_name in selected:
+        script_path = scripts.get(category, {}).get(script_name)
+        try:
+            module = import_script(script_path)
 
-        if hasattr(module, "run"):
-            # Capture script output by replacing print() with ui_print()
-            old_print = builtins.print
-            def custom_print(*args, **kwargs):
-                message = " ".join(str(a) for a in args)
-                ui_print(message)
+            if hasattr(module, "run"):
+                # Capture script output by replacing print() with ui_print()
+                old_print = builtins.print
+                def custom_print(*args, **kwargs):
+                    message = " ".join(str(a) for a in args)
+                    ui_print(message)
 
-            builtins.print = custom_print
-            try:
-                module.run(file_path, k_value)
-            finally:
-                builtins.print = old_print  # restore after script finishes
+                builtins.print = custom_print
+                try:
+                    result = module.run(current_file, k_value)
+                finally:
+                    builtins.print = old_print  # restore after script finishes
 
-            messagebox.showinfo(
-                "Success",
-                f"Ran '{selected_script}' with k={k_value} on:\n{os.path.basename(file_path)}"
-            )
-        else:
-            messagebox.showerror("Error", f"{selected_script}.py does not have a compatible run() function.")
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to run {selected_script}:\n{e}")
+                # If the script returns a path, use it as the input for the next script
+                if isinstance(result, str) and os.path.exists(result):
+                    current_file = result
+                else:
+                    # If no path returned, keep using current_file (scripts may overwrite files)
+                    pass
+            else:
+                messagebox.showerror("Error", f"{script_name}.py does not have a compatible run() function.")
+                return
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to run {script_name}:\n{e}")
+            return
+
+    messagebox.showinfo(
+        "Success",
+        f"Ran {len(selected)} script(s) with k={k_value} on:\n{os.path.basename(file_path)}\nFinal output: {os.path.basename(current_file)}"
+    )
 
 def ui_print(text):
     console.insert(tk.END, text + "\n")
     console.see(tk.END)  # auto-scroll
+
+def clear_console():
+    try:
+        console.delete('1.0', tk.END)
+    except Exception:
+        pass
 
 # --- GUI setup ---
 root = tk.Tk()
@@ -100,11 +168,46 @@ desc_label = tk.Label(
 )
 desc_label.pack(pady=(20, 10))
 
-# Dropdown for scripts
-script_var = tk.StringVar(value="Select script...")
-dropdown = tk.OptionMenu(content, script_var, *scripts.keys())
-dropdown.config(font=("Arial", 11), width=18)
-dropdown.pack(pady=5)
+# Script selection (grouped by category)
+scripts_frame = tk.Frame(content, bg="#f8f9fa")
+scripts_frame.pack(pady=5, fill='x')
+
+anonym_names = sorted(scripts.get('Anonymization', {}).keys())
+utils_names = sorted(scripts.get('Utilities', {}).keys())
+helpers_names = sorted(scripts.get('Helpers', {}).keys())
+
+# Anonymization listbox
+anonym_frame = tk.Frame(scripts_frame, bg="#f8f9fa")
+anonym_frame.pack(side='left', padx=10)
+anonym_label = tk.Label(anonym_frame, text="Anonymization", font=("Arial", 11, "bold"), bg="#f8f9fa")
+anonym_label.pack()
+anonym_listbox = tk.Listbox(anonym_frame, selectmode=tk.MULTIPLE, height=6, exportselection=False)
+for name in anonym_names:
+    anonym_listbox.insert(tk.END, name)
+anonym_listbox.config(font=("Arial", 11), width=30)
+anonym_listbox.pack()
+
+# Utilities listbox
+utils_frame = tk.Frame(scripts_frame, bg="#f8f9fa")
+utils_frame.pack(side='left', padx=10)
+utils_label = tk.Label(utils_frame, text="Utilities", font=("Arial", 11, "bold"), bg="#f8f9fa")
+utils_label.pack()
+utils_listbox = tk.Listbox(utils_frame, selectmode=tk.MULTIPLE, height=6, exportselection=False)
+for name in utils_names:
+    utils_listbox.insert(tk.END, name)
+utils_listbox.config(font=("Arial", 11), width=30)
+utils_listbox.pack()
+
+# Helpers listbox
+helpers_frame = tk.Frame(scripts_frame, bg="#f8f9fa")
+helpers_frame.pack(side='left', padx=10)
+helpers_label = tk.Label(helpers_frame, text="Helpers", font=("Arial", 11, "bold"), bg="#f8f9fa")
+helpers_label.pack()
+helpers_listbox = tk.Listbox(helpers_frame, selectmode=tk.MULTIPLE, height=6, exportselection=False)
+for name in helpers_names:
+    helpers_listbox.insert(tk.END, name)
+helpers_listbox.config(font=("Arial", 11), width=30)
+helpers_listbox.pack()
 # Entry for k value
 k_label = tk.Label(
     content,
@@ -131,9 +234,7 @@ run_button = tk.Button(
 )
 run_button.pack(pady=20)
 
-# text output box
-console = tk.Text(content, height=8, font=("Courier", 10))
-console.pack(fill="x", padx=10, pady=10)
+# (single output console is defined below)
 
 footer = tk.Label(
     root,
@@ -144,8 +245,14 @@ footer = tk.Label(
 footer.pack(side="bottom", pady=10)
 
 # --- Output console ---
-console_label = tk.Label(root, text="Output:", font=("Arial", 11), bg="#f8f9fa")
-console_label.pack(pady=(5, 0))
+console_frame = tk.Frame(root, bg="#f8f9fa")
+console_frame.pack(fill='x', padx=10)
+
+console_label = tk.Label(console_frame, text="Output:", font=("Arial", 11), bg="#f8f9fa")
+console_label.pack(side='left', pady=(5, 0))
+
+clear_button = tk.Button(console_frame, text="Clear", command=clear_console, font=("Arial", 10), bg="#dc3545", fg="white", relief="flat")
+clear_button.pack(side='right', pady=(5,0))
 
 console = tk.Text(root, height=8, font=("Courier", 10), bg="#eeeeee")
 console.pack(fill="both", expand=True, padx=10, pady=10)
